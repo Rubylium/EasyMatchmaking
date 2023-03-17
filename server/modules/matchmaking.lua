@@ -1,6 +1,7 @@
 local Matchmaking = {}
 Matchmaking.__index = Matchmaking
 
+-- Constructor for the Matchmaking class
 function Matchmaking.new()
     local self = setmetatable({}, Matchmaking)
     self.matches = {}
@@ -18,10 +19,12 @@ function Matchmaking.new()
     return self
 end
 
+-- Create a party with the given ID and players
 function Matchmaking:createParty(partyID, players)
     self.parties[partyID] = players
 end
 
+-- Estimate the wait time for a player in the given game mode
 function Matchmaking:estimateWaitTime(mode)
     local queueSize = #self.queues[mode].queue
     local maxPlayers = self.queues[mode].maxPlayers
@@ -31,6 +34,7 @@ function Matchmaking:estimateWaitTime(mode)
     return estimatedWaitTime
 end
 
+-- Add a party to the queue for a specified game mode
 function Matchmaking:addToQueue(partyID, mode)
     local partySkill = 0
     for _, player in ipairs(self.parties[partyID]) do
@@ -78,6 +82,7 @@ function Matchmaking:addToQueue(partyID, mode)
     print("Party " .. partyID .. " added to the " .. mode .. " queue.")
 end
 
+-- Fill a match with parties from the queue for the given game mode
 function Matchmaking:fillMatchWithParties(match, mode)
     local maxPlayers = self.queues[mode].maxPlayers
 
@@ -96,6 +101,7 @@ function Matchmaking:fillMatchWithParties(match, mode)
     end
 end
 
+-- Distribute players evenly into two teams for the given match and game mode
 function Matchmaking:distributePlayersToTeams(match, mode)
     local teams = {}
     local maxPlayers = self.queues[mode].maxPlayers
@@ -112,6 +118,7 @@ function Matchmaking:distributePlayersToTeams(match, mode)
     return teams
 end
 
+-- Create a new match for the given game mode
 function Matchmaking:createMatch(mode)
     local matchID = generateUUID()
 
@@ -132,6 +139,7 @@ function Matchmaking:createMatch(mode)
     self:onMatchStarted(mode, matchID)
 end
 
+-- Check the status of ongoing matches for the given game mode
 function Matchmaking:checkMatches(mode)
     print("Checking matches for mode: " .. mode)
     for i = #self.matches, 1, -1 do
@@ -184,10 +192,12 @@ function Matchmaking:checkMatches(mode)
     end
 end
 
+-- Check if a player is disconnected
 function Matchmaking:IsPlayerDisconnected(player)
     return GetPlayerPing(player) == 0
 end
 
+-- Remove disconnected players from the queue for the given game mode
 function Matchmaking:removeDisconnectedPlayersFromQueue(mode)
     local queue = self.queues[mode].queue
     for i = #queue, 1, -1 do
@@ -199,6 +209,7 @@ function Matchmaking:removeDisconnectedPlayersFromQueue(mode)
     end
 end
 
+-- Continuously check matches and create new matches as needed for the given game mode
 function Matchmaking:matchmakingLoop(mode)
     while true do
         Wait(1000)
@@ -210,6 +221,7 @@ function Matchmaking:matchmakingLoop(mode)
     end
 end
 
+-- Simulate players joining parties and entering queues for testing purposes
 function Matchmaking:simulatePlayers()
     for i = 1, 5 do
         local partyID = "Party " .. i
@@ -221,6 +233,7 @@ function Matchmaking:simulatePlayers()
     end
 end
 
+-- Start the matchmaking process for all game modes
 function Matchmaking:startMatchmaking()
     for mode, config in pairs(self.queues) do
         CreateThread(function() self:matchmakingLoop(mode) end)
