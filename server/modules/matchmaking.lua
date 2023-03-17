@@ -1,5 +1,6 @@
 MATCHMAKING = {}
 
+MATCHMAKING.Matches = {}
 MATCHMAKING.Queues = {}
 MATCHMAKING.Queues["deathmatch"] = { MaxPlayers = 8, Queue = {}, ActiveMatches = {} }
 MATCHMAKING.Queues["capturetheflag"] = { MaxPlayers = 6, Queue = {}, ActiveMatches = {} }
@@ -61,15 +62,26 @@ function MATCHMAKING.AddToQueue(partyID, mode)
     -- Send the estimated waiting time to all players in the party
     for _, player in ipairs(MATCHMAKING.Parties[partyID]) do
         TriggerClientEvent("OnEstimatedWaitTime", player, estimatedWaitTime)
+        MATCHMAKING.OnPlayerJoinedQueue(player, mode)
     end
 
     if #MATCHMAKING.Queues[mode].Queue >= MATCHMAKING.Queues[mode].MaxPlayers and #MATCHMAKING.Queues[mode].ActiveMatches == 0 then
         MATCHMAKING.CreateMatch(mode)
     end
+    print("Party " .. partyID .. " added to the " .. mode .. " queue.")
 end
 
 function MATCHMAKING.CreateMatch(mode)
-    local match = {}
+    -- Generate a unique match ID
+    local matchID = os.time() .. "-" .. math.random(10000, 99999)
+
+    -- Store match data
+    local match = {
+        id = matchID,
+        mode = mode,
+        teams = {},
+    }
+
     local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
 
     while #match < maxPlayers and #MATCHMAKING.Queues[mode].Queue > 0 do
@@ -98,7 +110,13 @@ function MATCHMAKING.CreateMatch(mode)
         table.insert(teams[2], team2Player)
     end
     
-    table.insert(MATCHMAKING.Queues[mode].ActiveMatches, teams)
+    -- Store the teams in the match data
+    match.teams = teams
+
+    -- Save the match data
+    table.insert(MATCHMAKING.Matches, match)
+
+    print("Match created in " .. mode .. " mode with balanced teams (Match ID: " .. matchID .. ")")
     
     print("Match created in " .. mode .. " mode with balanced teams:")
     for i, team in ipairs(teams) do
@@ -107,10 +125,14 @@ function MATCHMAKING.CreateMatch(mode)
             print(player .. " (Skill: " .. PLAYERS.GetSkill(player) .. ")")
         end
     end
+
+    -- Trigger the custom event
+    MATCHMAKING.OnMatchStarted(mode, matchID)
 end
 
 
 function MATCHMAKING.CheckMatches(mode)
+    print("Checking matches for mode: " .. mode)
     -- Check active matches for disconnected players
     for i = #MATCHMAKING.Queues[mode].ActiveMatches, 1, -1 do
         local teams = MATCHMAKING.Queues[mode].ActiveMatches[i]
@@ -129,8 +151,12 @@ function MATCHMAKING.CheckMatches(mode)
 
         -- Remove match if all players are disconnected
         if #teams[1] == 0 and #teams[2] == 0 then
+            local matchID = MATCHMAKING.Queues[mode].ActiveMatches[i].id
             table.remove(MATCHMAKING.Queues[mode].ActiveMatches, i)
-            print("Match in " .. mode .. " mode ended.")
+            print("Match in " .. mode .. " mode ended (Match ID: " .. matchID .. ")")
+    
+            -- Trigger the custom event
+            MATCHMAKING.OnMatchEnded(mode, matchID)
         else
             -- Find replacement players for disconnected players
             for _, player in ipairs(disconnected_players) do
@@ -197,6 +223,24 @@ function MATCHMAKING.StartMatchmaking()
         CreateThread(function() MATCHMAKING.MatchmakingLoop(mode) end)
     end
 end
+
+-- Add custom events for monitoring
+function MATCHMAKING.OnPlayerJoinedQueue(player, mode)
+    TriggerEvent("MATCHMAKING:PlayerJoinedQueue", player, mode)
+end
+
+function MATCHMAKING.OnPlayerLeftQueue(player, mode)
+    TriggerEvent("MATCHMAKING:PlayerLeftQueue", player, mode)
+end
+
+function MATCHMAKING.OnMatchStarted(mode, matchID)
+    TriggerEvent("MATCHMAKING:MatchStarted", mode, matchID)
+end
+
+function MATCHMAKING.OnMatchEnded(mode, matchID)
+    TriggerEvent("MATCHMAKING:MatchEnded", mode, matchID)
+end
+
 
 MATCHMAKING.SimulatePlayers()
 MATCHMAKING.StartMatchmaking()
