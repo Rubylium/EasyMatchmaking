@@ -1,51 +1,58 @@
-PLAYERS = {}
-PLAYERS.List = {}
+PLAYERS = {
+    List = {}
+}
 
--- Function to add a player to the PLAYERS list
-function PLAYERS.Add(playerId, level, skill)
-    table.insert(PLAYERS.List, {id = playerId, level = level, skill = skill})
-end
-
--- Function to remove a player from the PLAYERS list
-function PLAYERS.Remove(playerId)
-    for i, player in ipairs(PLAYERS.List) do
-        if player.id == playerId then
-            table.remove(PLAYERS.List, i)
-            return
-        end
+-- Insert a new player or update an existing one
+function PLAYERS.Set(playerId, level, skill)
+    if PLAYERS.List[playerId] then
+        PLAYERS.List[playerId].level = level
+        PLAYERS.List[playerId].skill = skill
+        MySQL.update.await('UPDATE player_data SET level = ?, skill = ? WHERE player_id = ?', {level, skill, playerId})
+    else
+        PLAYERS.List[playerId] = {
+            id = playerId,
+            level = level,
+            skill = skill
+        }
+        MySQL.insert.await('INSERT INTO player_data (player_id, level, skill) VALUES (?, ?, ?)', {playerId, level, skill})
     end
 end
 
--- Function to get a player's skill
+-- Add player data to cache
+function PLAYERS.Add(playerId)
+    local result = MySQL.query.await('SELECT * FROM player_data WHERE player_id = ?', {playerId})
+    if #result > 0 then
+        local data = result[1]
+        PLAYERS.List[playerId] = {
+            id = playerId,
+            level = data.level,
+            skill = data.skill
+        }
+    end
+end
+
+-- Get the skill of a player
 function PLAYERS.GetSkill(playerId)
-    for _, player in ipairs(PLAYERS.List) do
-        if player.id == playerId then
-            return player.skill
-        end
+    if PLAYERS.List[playerId] then
+        return PLAYERS.List[playerId].skill
     end
+    return nil
 end
 
--- Function to update a player's skill
-function PLAYERS.UpdateSkill(playerId, newSkill)
-    for _, player in ipairs(PLAYERS.List) do
-        if player.id == playerId then
-            player.skill = newSkill
-            return
-        end
+-- Get the level of a player
+function PLAYERS.GetLevel(playerId)
+    if PLAYERS.List[playerId] then
+        return PLAYERS.List[playerId].level
     end
+    return nil
 end
 
--- Replace the previous GetPlayerSkill function with this one that uses the PLAYERS API
-function GetPlayerSkill(player)
-    return PLAYERS.GetSkill(player)
+-- Delete a player
+function PLAYERS.Delete(playerId)
+    if PLAYERS.List[playerId] then
+        PLAYERS.List[playerId] = nil
+        local affectedRows = MySQL.update.await('DELETE FROM player_data WHERE player_id = ?', {playerId})
+        return affectedRows > 0
+    end
+    return false
 end
-
--- Example usage of the PLAYERS API
-PLAYERS.Add(1, 1, 1000)
-PLAYERS.Add(2, 2, 1100)
-PLAYERS.Add(3, 3, 1200)
-
-print("Player 1's skill: " .. PLAYERS.GetSkill(1))
-PLAYERS.UpdateSkill(1, 1300)
-print("Player 1's updated skill: " .. PLAYERS.GetSkill(1))
-PLAYERS.Remove(1)
