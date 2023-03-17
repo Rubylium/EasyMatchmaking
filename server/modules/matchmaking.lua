@@ -81,19 +81,7 @@ function MATCHMAKING.AddToQueue(partyID, mode)
     print("Party " .. partyID .. " added to the " .. mode .. " queue.")
 end
 
-
-function MATCHMAKING.CreateMatch(mode)
-    -- Generate a unique match ID
-    local matchID = generateUUID()
-
-    -- Store match data
-    local match = {
-        ID = matchID,
-        Mode = mode,
-        Players = {},
-        StartTime = os.time(),
-    }
-
+function MATCHMAKING.FillMatchWithParties(match, mode)
     local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
 
     while #match < maxPlayers and #MATCHMAKING.Queues[mode].Queue > 0 do
@@ -109,9 +97,9 @@ function MATCHMAKING.CreateMatch(mode)
             break
         end
     end
+end
 
-
-    -- Distribute players between teams in a balanced way
+function MATCHMAKING.DistributePlayersToTeams(match, mode)
     local teams = {}
     for i = 1, MATCHMAKING.Queues[mode].MaxPlayers // 2 do
         local team1Player = match[2 * i - 1]
@@ -121,23 +109,26 @@ function MATCHMAKING.CreateMatch(mode)
         table.insert(teams[1], team1Player)
         table.insert(teams[2], team2Player)
     end
-    
-    -- Store the teams in the match data
-    match.teams = teams
 
-    -- Save the match data
+    return teams
+end
+
+function MATCHMAKING.CreateMatch(mode)
+    local matchID = generateUUID()
+
+    local match = {
+        ID = matchID,
+        Mode = mode,
+        Players = {},
+        StartTime = os.time(),
+    }
+
+    MATCHMAKING.FillMatchWithParties(match.Players, mode)
+    match.teams = MATCHMAKING.DistributePlayersToTeams(match.Players, mode)
+
     table.insert(MATCHMAKING.Matches, match)
 
     print("Match created in " .. mode .. " mode with balanced teams (Match ID: " .. matchID .. ")")
-    
-    print("Match created in " .. mode .. " mode with balanced teams:")
-    for i, team in ipairs(teams) do
-        print("Team " .. i .. ":")
-        for _, player in ipairs(team) do
-            print(player .. " (Skill: " .. PLAYERS.GetSkill(player) .. ")")
-        end
-    end
-
     -- Trigger the custom event
     MATCHMAKING.OnMatchStarted(mode, matchID)
 end
