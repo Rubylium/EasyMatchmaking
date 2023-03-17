@@ -1,6 +1,6 @@
 # Matchmaking System for Game Modes (Theoretical Implementation)
 
-This repository contains a theoretical Lua-based matchmaking system designed for FiveM servers, focusing on creating balanced matches and managing player queues for various game modes. This code is **not intended to work as-is** but serves as a logical framework for implementing a matchmaking system.
+This repository contains a **theoretical** Lua-based matchmaking system designed for FiveM servers, focusing on creating _balanced matches_ and managing player queues for various game modes. This code is **not intended to work as-is** but serves as a logical framework for implementing a matchmaking system.
 
 ## Overview
 
@@ -12,6 +12,6 @@ The system supports multiple game modes, and it can be easily extended to includ
 - Capture the Flag
 - Team Deathmatch
 
-*Note: This code is not intended for direct use and may require modifications to fit specific implementations or integrate with other systems. It serves as a theoretical framework for designing a matchmaking system.*
+⚠️ *Note: This code is not intended for direct use and may require modifications to fit specific implementations or integrate with other systems. It serves as a theoretical framework for designing a matchmaking system.*
 
-For more details on the system components, methods, custom events, and extending the system, please refer to the [technical README](TechnicalReadme.md).
+For more details on the system components, methods, custom events, and extending the system, please refer to the [📚 technical README](TechnicalReadme.md).
