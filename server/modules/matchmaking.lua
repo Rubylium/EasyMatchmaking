@@ -36,10 +36,18 @@ end
 
 function Matchmaking:getAveragePartySkill(partyID)
     local partySkill = 0
-    for _, player in ipairs(self.parties[partyID]) do
-        partySkill = partySkill + player:GetSkill()
+    local party = self.parties[partyID]
+
+    for _, playerId in ipairs(party) do
+        local playerSkill = players:getSkill(playerId)
+        if playerSkill then
+            partySkill = partySkill + playerSkill
+        else
+            return nil
+        end
     end
-    return partySkill / #self.parties[partyID]
+
+    return partySkill / #party
 end
 
 -- Add a party to the queue for a specified game mode
