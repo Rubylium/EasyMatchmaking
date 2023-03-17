@@ -2,9 +2,11 @@ MATCHMAKING = {}
 
 MATCHMAKING.Matches = {}
 MATCHMAKING.Queues = {}
-MATCHMAKING.Queues["deathmatch"] = { MaxPlayers = 8, Queue = {}, ActiveMatches = {} }
-MATCHMAKING.Queues["capturetheflag"] = { MaxPlayers = 6, Queue = {}, ActiveMatches = {} }
-MATCHMAKING.Queues["teamdeathmatch"] = { MaxPlayers = 10, Queue = {}, ActiveMatches = {} }
+MATCHMAKING.Queues = {
+    ["deathmatch"] = { MaxPlayers = 8, Queue = {} },
+    ["capturetheflag"] = { MaxPlayers = 6, Queue = {} },
+    ["teamdeathmatch"] = { MaxPlayers = 10, Queue = {} },
+}
 -- Add a table to store party information
 MATCHMAKING.Parties = {}
 
@@ -65,7 +67,12 @@ function MATCHMAKING.AddToQueue(partyID, mode)
         MATCHMAKING.OnPlayerJoinedQueue(player, mode)
     end
 
-    if #MATCHMAKING.Queues[mode].Queue >= MATCHMAKING.Queues[mode].MaxPlayers and #MATCHMAKING.Queues[mode].ActiveMatches == 0 then
+    local queuedPlayers = 0
+    for _, queuedPartyID in ipairs(MATCHMAKING.Queues[mode].Queue) do
+        queuedPlayers = queuedPlayers + #MATCHMAKING.Parties[queuedPartyID]
+    end
+
+    if queuedPlayers >= MATCHMAKING.Queues[mode].MaxPlayers then
         MATCHMAKING.CreateMatch(mode)
     end
     print("Party " .. partyID .. " added to the " .. mode .. " queue.")
@@ -133,41 +140,45 @@ end
 
 function MATCHMAKING.CheckMatches(mode)
     print("Checking matches for mode: " .. mode)
-    -- Check active matches for disconnected players
-    for i = #MATCHMAKING.Queues[mode].ActiveMatches, 1, -1 do
-        local teams = MATCHMAKING.Queues[mode].ActiveMatches[i]
+    for i = #MATCHMAKING.Matches, 1, -1 do
+        local match = MATCHMAKING.Matches[i]
 
-        local disconnected_players = {}
-        for team_index, team in ipairs(teams) do
-            for j = #team, 1, -1 do
-                local player = team[j]
-
-                if GetPlayerPing(player) == 0 then
-                    table.remove(team, j)
-                    table.insert(disconnected_players, player)
-                end
-            end
-        end
-
-        -- Remove match if all players are disconnected
-        if #teams[1] == 0 and #teams[2] == 0 then
-            local matchID = MATCHMAKING.Queues[mode].ActiveMatches[i].id
-            table.remove(MATCHMAKING.Queues[mode].ActiveMatches, i)
-            print("Match in " .. mode .. " mode ended (Match ID: " .. matchID .. ")")
+        if match.mode == mode then
+            local teams = match.teams
+            local disconnected_players = {}
+            for team_index, team in ipairs(teams) do
+                for j = #team, 1, -1 do
+                    local player = team[j]
     
-            -- Trigger the custom event
-            MATCHMAKING.OnMatchEnded(mode, matchID)
-        else
-            -- Find replacement players for disconnected players
-            for _, player in ipairs(disconnected_players) do
-                if #MATCHMAKING.Queues[mode].Queue > 0 then
-                    local replacement_player = table.remove(MATCHMAKING.Queues[mode].Queue, 1)
-                    local teamWithFewestPlayers = (#teams[1] < #teams[2]) and 1 or 2
-                    table.insert(teams[teamWithFewestPlayers], replacement_player) -- Add the replacement player to the team with the fewest players
-                    print("Replacement player " .. replacement_player .. " joined the match in " .. mode .. " mode.")
+                    if MATCHMAKING.IsPlayerDisconnected(player) then
+                        table.remove(team, j)
+                        table.insert(disconnected_players, player)
+                    end
+                end
+            end
+    
+            -- Remove match if all players are disconnected
+            if #teams[1] == 0 and #teams[2] == 0 then
+                local matchID = match.id
+                table.remove(MATCHMAKING.Matches, i)
+                print("Match in " .. mode .. " mode ended (Match ID: " .. matchID .. ")")
+
+                -- Trigger the custom event
+                MATCHMAKING.OnMatchEnded(mode, matchID)
+            else
+                -- Find replacement players for disconnected players
+                for _, player in ipairs(disconnected_players) do
+                    if #MATCHMAKING.Queues[mode].Queue > 0 then
+                        local replacement_player = table.remove(MATCHMAKING.Queues[mode].Queue, 1)
+                        local teamWithFewestPlayers = (#teams[1] < #teams[2]) and 1 or 2
+                        table.insert(teams[teamWithFewestPlayers], replacement_player) -- Add the replacement player to the team with the fewest players
+                        print("Replacement player " .. replacement_player .. " joined the match in " .. mode .. " mode.")
+                    end
                 end
             end
         end
+
+
     end
 
     -- Check the queue for disconnected players
