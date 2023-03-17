@@ -34,22 +34,22 @@ function Matchmaking:estimateWaitTime(mode)
     return estimatedWaitTime
 end
 
--- Add a party to the queue for a specified game mode
-function Matchmaking:addToQueue(partyID, mode)
+function Matchmaking:getAveragePartySkill(partyID)
     local partySkill = 0
     for _, player in ipairs(self.parties[partyID]) do
         partySkill = partySkill + player:GetSkill()
     end
-    partySkill = partySkill / #self.parties[partyID]
+    return partySkill / #self.parties[partyID]
+end
+
+-- Add a party to the queue for a specified game mode
+function Matchmaking:addToQueue(partyID, mode)
+    local partySkill = self:getAveragePartySkill(partyID)
 
     local inserted = false
     for queueIndex = 1, #self.queues[mode].queue do
         local currentPartyID = self.queues[mode].queue[queueIndex]
-        local currentPartySkill = 0
-        for _, player in ipairs(self.parties[currentPartyID]) do
-            currentPartySkill = currentPartySkill + player:GetSkill()
-        end
-        currentPartySkill = currentPartySkill / #self.parties[currentPartyID]
+        local currentPartySkill = self:getAveragePartySkill(currentPartyID)
 
         if partySkill < currentPartySkill then
             table.insert(self.queues[mode].queue, queueIndex, partyID)
