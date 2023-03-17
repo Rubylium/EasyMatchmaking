@@ -1,18 +1,16 @@
--- Define a class for Matchmaking
 local Matchmaking = {}
 Matchmaking.__index = Matchmaking
 
--- Constructor
 function Matchmaking.new()
     local self = setmetatable({}, Matchmaking)
-    self.Matches = {}
-    self.Queues = {
-        ["deathmatch"] = { MaxPlayers = 8, Queue = {} },
-        ["capturetheflag"] = { MaxPlayers = 6, Queue = {} },
-        ["teamdeathmatch"] = { MaxPlayers = 10, Queue = {} },
+    self.matches = {}
+    self.queues = {
+        ["deathmatch"] = { maxPlayers = 8, queue = {} },
+        ["capturetheflag"] = { maxPlayers = 6, queue = {} },
+        ["teamdeathmatch"] = { maxPlayers = 10, queue = {} },
     }
-    self.Parties = {}
-    self.AverageMatchDurations = {
+    self.parties = {}
+    self.averageMatchDurations = {
         ["deathmatch"] = 300,
         ["capturetheflag"] = 600,
         ["teamdeathmatch"] = 480
@@ -20,91 +18,89 @@ function Matchmaking.new()
     return self
 end
 
-function Matchmaking:CreateParty(partyID, players)
-    MATCHMAKING.Parties[partyID] = players
+function Matchmaking:createParty(partyID, players)
+    self.parties[partyID] = players
 end
 
-function Matchmaking:EstimateWaitTime(mode)
-    local queueSize = #MATCHMAKING.Queues[mode].Queue
-    local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
-    local averageMatchDuration = MATCHMAKING.AverageMatchDurations[mode]
+function Matchmaking:estimateWaitTime(mode)
+    local queueSize = #self.queues[mode].queue
+    local maxPlayers = self.queues[mode].maxPlayers
+    local averageMatchDuration = self.averageMatchDurations[mode]
 
-    -- Calculate the waiting time estimation based on queue size and average match duration
     local estimatedWaitTime = queueSize * averageMatchDuration / maxPlayers
     return estimatedWaitTime
 end
 
-function Matchmaking:AddToQueue(partyID, mode)
+function Matchmaking:addToQueue(partyID, mode)
     local partySkill = 0
-    for _, player in ipairs(MATCHMAKING.Parties[partyID]) do
-        partySkill = partySkill + PLAYERS.GetSkill(player)
+    for _, player in ipairs(self.parties[partyID]) do
+        partySkill = partySkill + player:GetSkill()
     end
-    partySkill = partySkill / #MATCHMAKING.Parties[partyID] -- Calculate the average skill of the party
+    partySkill = partySkill / #self.parties[partyID]
 
     local inserted = false
-    for queueIndex = 1, #MATCHMAKING.Queues[mode].Queue do
-        local currentPartyID = MATCHMAKING.Queues[mode].Queue[queueIndex]
+    for queueIndex = 1, #self.queues[mode].queue do
+        local currentPartyID = self.queues[mode].queue[queueIndex]
         local currentPartySkill = 0
-        for _, player in ipairs(MATCHMAKING.Parties[currentPartyID]) do
-            currentPartySkill = currentPartySkill + PLAYERS.GetSkill(player)
+        for _, player in ipairs(self.parties[currentPartyID]) do
+            currentPartySkill = currentPartySkill + player:GetSkill()
         end
-        currentPartySkill = currentPartySkill / #MATCHMAKING.Parties[currentPartyID]
+        currentPartySkill = currentPartySkill / #self.parties[currentPartyID]
 
         if partySkill < currentPartySkill then
-            table.insert(MATCHMAKING.Queues[mode].Queue, queueIndex, partyID)
+            table.insert(self.queues[mode].queue, queueIndex, partyID)
             inserted = true
             break
         end
     end
 
     if not inserted then
-        table.insert(MATCHMAKING.Queues[mode].Queue, partyID)
+        table.insert(self.queues[mode].queue, partyID)
     end
 
-    -- Remove disconnected players from the queue
-    MATCHMAKING.RemoveDisconnectedPlayersFromQueue(mode)
+    self:removeDisconnectedPlayersFromQueue(mode)
 
-    -- Calculate the estimated waiting time
-    local estimatedWaitTime = MATCHMAKING.EstimateWaitTime(mode)
+    local estimatedWaitTime = self:estimateWaitTime(mode)
 
-    -- Send the estimated waiting time to all players in the party
-    for _, player in ipairs(MATCHMAKING.Parties[partyID]) do
+    for _, player in ipairs(self.parties[partyID]) do
         TriggerClientEvent("OnEstimatedWaitTime", player, estimatedWaitTime)
-        MATCHMAKING.OnPlayerJoinedQueue(player, mode)
+        self:onPlayerJoinedQueue(player, mode)
     end
 
     local queuedPlayers = 0
-    for _, queuedPartyID in ipairs(MATCHMAKING.Queues[mode].Queue) do
-        queuedPlayers = queuedPlayers + #MATCHMAKING.Parties[queuedPartyID]
+    for _, queuedPartyID in ipairs(self.queues[mode].queue) do
+        queuedPlayers = queuedPlayers + #self.parties[queuedPartyID]
     end
 
-    if queuedPlayers >= MATCHMAKING.Queues[mode].MaxPlayers then
-        MATCHMAKING.CreateMatch(mode)
+    if queuedPlayers >= self.queues[mode].maxPlayers then
+        self:createMatch(mode)
     end
     print("Party " .. partyID .. " added to the " .. mode .. " queue.")
 end
 
-function Matchmaking:FillMatchWithParties(match, mode)
-    local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
+function Matchmaking:fillMatchWithParties(match, mode)
+    local maxPlayers = self.queues[mode].maxPlayers
 
-    while #match < maxPlayers and #MATCHMAKING.Queues[mode].Queue > 0 do
-        local partyID = table.remove(MATCHMAKING.Queues[mode].Queue, 1)
-        local party = MATCHMAKING.Parties[partyID]
+    while #match < maxPlayers and #self.queues[mode].queue > 0 do
+        local partyID = table.remove(self.queues[mode].queue, 1)
+        local party = self.parties[partyID]
 
         if #party + #match <= maxPlayers then
             for _, player in ipairs(party) do
                 table.insert(match, player)
             end
         else
-            table.insert(MATCHMAKING.Queues[mode].Queue, 1, partyID) -- Return the party back to the queue
+            table.insert(self.queues[mode].queue, 1, partyID) -- Return the party back to the queue
             break
         end
     end
 end
 
-function Matchmaking:DistributePlayersToTeams(match, mode)
+function Matchmaking:distributePlayersToTeams(match, mode)
     local teams = {}
-    for i = 1, MATCHMAKING.Queues[mode].MaxPlayers // 2 do
+    local maxPlayers = self.queues[mode].maxPlayers
+
+    for i = 1, maxPlayers // 2 do
         local team1Player = match[2 * i - 1]
         local team2Player = match[2 * i]
         if not teams[1] then teams[1] = {} end
@@ -116,7 +112,7 @@ function Matchmaking:DistributePlayersToTeams(match, mode)
     return teams
 end
 
-function Matchmaking:CreateMatch(mode)
+function Matchmaking:createMatch(mode)
     local matchID = generateUUID()
 
     local match = {
@@ -126,66 +122,63 @@ function Matchmaking:CreateMatch(mode)
         StartTime = os.time(),
     }
 
-    MATCHMAKING.FillMatchWithParties(match.Players, mode)
-    match.teams = MATCHMAKING.DistributePlayersToTeams(match.Players, mode)
+    self:fillMatchWithParties(match.Players, mode)
+    match.teams = self:distributePlayersToTeams(match.Players, mode)
 
-    table.insert(MATCHMAKING.Matches, match)
+    table.insert(self.matches, match)
 
     print("Match created in " .. mode .. " mode with balanced teams (Match ID: " .. matchID .. ")")
     -- Trigger the custom event
-    MATCHMAKING.OnMatchStarted(mode, matchID)
+    self:onMatchStarted(mode, matchID)
 end
 
-
-function Matchmaking:CheckMatches(mode)
+function Matchmaking:checkMatches(mode)
     print("Checking matches for mode: " .. mode)
-    for i = #MATCHMAKING.Matches, 1, -1 do
-        local match = MATCHMAKING.Matches[i]
+    for i = #self.matches, 1, -1 do
+        local match = self.matches[i]
 
-        if match.mode == mode then
+        if match.Mode == mode then
             local teams = match.teams
-            local disconnected_players = {}
-            for team_index, team in ipairs(teams) do
+            local disconnectedPlayers = {}
+            for teamIndex, team in ipairs(teams) do
                 for j = #team, 1, -1 do
                     local player = team[j]
     
-                    if MATCHMAKING.IsPlayerDisconnected(player) then
+                    if self:isPlayerDisconnected(player) then
                         table.remove(team, j)
-                        table.insert(disconnected_players, player)
+                        table.insert(disconnectedPlayers, player)
                     end
                 end
             end
     
             -- Remove match if all players are disconnected
             if #teams[1] == 0 and #teams[2] == 0 then
-                local matchID = match.id
-                table.remove(MATCHMAKING.Matches, i)
+                local matchID = match.ID
+                table.remove(self.matches, i)
                 print("Match in " .. mode .. " mode ended (Match ID: " .. matchID .. ")")
 
                 -- Trigger the custom event
-                MATCHMAKING.OnMatchEnded(mode, matchID)
+                self:onMatchEnded(mode, matchID)
             else
                 -- Find replacement players for disconnected players
-                for _, player in ipairs(disconnected_players) do
-                    if #MATCHMAKING.Queues[mode].Queue > 0 then
-                        local replacement_player = table.remove(MATCHMAKING.Queues[mode].Queue, 1)
+                for _, player in ipairs(disconnectedPlayers) do
+                    if #self.queues[mode].queue > 0 then
+                        local replacementPlayer = table.remove(self.queues[mode].queue, 1)
                         local teamWithFewestPlayers = (#teams[1] < #teams[2]) and 1 or 2
-                        table.insert(teams[teamWithFewestPlayers], replacement_player) -- Add the replacement player to the team with the fewest players
-                        print("Replacement player " .. replacement_player .. " joined the match in " .. mode .. " mode.")
+                        table.insert(teams[teamWithFewestPlayers], replacementPlayer) -- Add the replacement player to the team with the fewest players
+                        print("Replacement player " .. replacementPlayer .. " joined the match in " .. mode .. " mode.")
                     end
                 end
             end
         end
-
-
     end
 
     -- Check the queue for disconnected players
-    for i = #MATCHMAKING.Queues[mode].Queue, 1, -1 do
-        local player = MATCHMAKING.Queues[mode].Queue[i]
+    for i = #self.queues[mode].queue, 1, -1 do
+        local player = self.queues[mode].queue[i]
 
-        if MATCHMAKING.IsPlayerDisconnected(player) then
-            table.remove(MATCHMAKING.Queues[mode].Queue, i)
+        if self:isPlayerDisconnected(player) then
+            table.remove(self.queues[mode].queue, i)
             print("Player " .. player .. " disconnected from the " .. mode .. " queue.")
         end
     end
@@ -195,42 +188,42 @@ function Matchmaking:IsPlayerDisconnected(player)
     return GetPlayerPing(player) == 0
 end
 
-function Matchmaking:RemoveDisconnectedPlayersFromQueue(mode)
-    local queue = MATCHMAKING.Queues[mode].Queue
+function Matchmaking:removeDisconnectedPlayersFromQueue(mode)
+    local queue = self.queues[mode].queue
     for i = #queue, 1, -1 do
         local player = queue[i]
-        if MATCHMAKING.IsPlayerDisconnected(player) then
+        if self:isPlayerDisconnected(player) then
             table.remove(queue, i)
             print("Player " .. player .. " disconnected from the " .. mode .. " queue.")
         end
     end
 end
 
-function Matchmaking:MatchmakingLoop(mode)
+function Matchmaking:matchmakingLoop(mode)
     while true do
         Wait(1000)
-        MATCHMAKING.CheckMatches(mode)
+        self:checkMatches(mode)
 
-        if #MATCHMAKING.Queues[mode].Queue >= MATCHMAKING.Queues[mode].TeamSize then
-            MATCHMAKING.CreateMatch(mode)
+        if #self.queues[mode].queue >= self.queues[mode].maxPlayers then
+            self:createMatch(mode)
         end
     end
 end
 
-function Matchmaking:SimulatePlayers()
+function Matchmaking:simulatePlayers()
     for i = 1, 5 do
         local partyID = "Party " .. i
         local players = {"Player " .. (2 * i - 1), "Player " .. (2 * i)}
-        MATCHMAKING.CreateParty(partyID, players)
-        MATCHMAKING.AddToQueue(partyID, "deathmatch")
-        MATCHMAKING.AddToQueue(partyID, "capturetheflag")
-        MATCHMAKING.AddToQueue(partyID, "teamdeathmatch")
+        self:createParty(partyID, players)
+        self:addToQueue(partyID, "deathmatch")
+        self:addToQueue(partyID, "capturetheflag")
+        self:addToQueue(partyID, "teamdeathmatch")
     end
 end
 
-function Matchmaking:StartMatchmaking()
-    for mode, config in pairs(MATCHMAKING.Queues) do
-        CreateThread(function() MATCHMAKING.MatchmakingLoop(mode) end)
+function Matchmaking:startMatchmaking()
+    for mode, config in pairs(self.queues) do
+        CreateThread(function() self:matchmakingLoop(mode) end)
     end
 end
 
