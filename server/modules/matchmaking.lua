@@ -39,8 +39,8 @@ function MATCHMAKING.AddToQueue(partyID, mode)
     partySkill = partySkill / #MATCHMAKING.Parties[partyID] -- Calculate the average skill of the party
 
     local inserted = false
-    for i = 1, #MATCHMAKING.Queues[mode].Queue do
-        local currentPartyID = MATCHMAKING.Queues[mode].Queue[i]
+    for queueIndex = 1, #MATCHMAKING.Queues[mode].Queue do
+        local currentPartyID = MATCHMAKING.Queues[mode].Queue[queueIndex]
         local currentPartySkill = 0
         for _, player in ipairs(MATCHMAKING.Parties[currentPartyID]) do
             currentPartySkill = currentPartySkill + PLAYERS.GetSkill(player)
@@ -48,7 +48,7 @@ function MATCHMAKING.AddToQueue(partyID, mode)
         currentPartySkill = currentPartySkill / #MATCHMAKING.Parties[currentPartyID]
 
         if partySkill < currentPartySkill then
-            table.insert(MATCHMAKING.Queues[mode].Queue, i, partyID)
+            table.insert(MATCHMAKING.Queues[mode].Queue, queueIndex, partyID)
             inserted = true
             break
         end
@@ -57,6 +57,9 @@ function MATCHMAKING.AddToQueue(partyID, mode)
     if not inserted then
         table.insert(MATCHMAKING.Queues[mode].Queue, partyID)
     end
+
+    -- Remove disconnected players from the queue
+    MATCHMAKING.RemoveDisconnectedPlayersFromQueue(mode)
 
     -- Calculate the estimated waiting time
     local estimatedWaitTime = MATCHMAKING.EstimateWaitTime(mode)
@@ -77,6 +80,7 @@ function MATCHMAKING.AddToQueue(partyID, mode)
     end
     print("Party " .. partyID .. " added to the " .. mode .. " queue.")
 end
+
 
 function MATCHMAKING.CreateMatch(mode)
     -- Generate a unique match ID
