@@ -217,7 +217,7 @@ function Matchmaking:MatchmakingLoop(mode)
     end
 end
 
-function atchmaking:SimulatePlayers()
+function Matchmaking:SimulatePlayers()
     for i = 1, 5 do
         local partyID = "Party " .. i
         local players = {"Player " .. (2 * i - 1), "Player " .. (2 * i)}
