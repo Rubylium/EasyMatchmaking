@@ -193,7 +193,7 @@ function Matchmaking:checkMatches(mode)
 end
 
 -- Check if a player is disconnected
-function Matchmaking:IsPlayerDisconnected(player)
+function Matchmaking:isPlayerDisconnected(player)
     return GetPlayerPing(player) == 0
 end
 
