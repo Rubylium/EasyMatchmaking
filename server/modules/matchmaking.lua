@@ -1,27 +1,30 @@
-MATCHMAKING = {}
+-- Define a class for Matchmaking
+local Matchmaking = {}
+Matchmaking.__index = Matchmaking
 
-MATCHMAKING.Matches = {}
-MATCHMAKING.Queues = {}
-MATCHMAKING.Queues = {
-    ["deathmatch"] = { MaxPlayers = 8, Queue = {} },
-    ["capturetheflag"] = { MaxPlayers = 6, Queue = {} },
-    ["teamdeathmatch"] = { MaxPlayers = 10, Queue = {} },
-}
--- Add a table to store party information
-MATCHMAKING.Parties = {}
+-- Constructor
+function Matchmaking.new()
+    local self = setmetatable({}, Matchmaking)
+    self.Matches = {}
+    self.Queues = {
+        ["deathmatch"] = { MaxPlayers = 8, Queue = {} },
+        ["capturetheflag"] = { MaxPlayers = 6, Queue = {} },
+        ["teamdeathmatch"] = { MaxPlayers = 10, Queue = {} },
+    }
+    self.Parties = {}
+    self.AverageMatchDurations = {
+        ["deathmatch"] = 300,
+        ["capturetheflag"] = 600,
+        ["teamdeathmatch"] = 480
+    }
+    return self
+end
 
--- Add a table to store average match durations per game mode
-MATCHMAKING.AverageMatchDurations = {
-    ["deathmatch"] = 300, -- Example: average match duration of 300 seconds
-    ["capturetheflag"] = 600,
-    ["teamdeathmatch"] = 480
-}
-
-function MATCHMAKING.CreateParty(partyID, players)
+function Matchmaking:CreateParty(partyID, players)
     MATCHMAKING.Parties[partyID] = players
 end
 
-function MATCHMAKING.EstimateWaitTime(mode)
+function Matchmaking:EstimateWaitTime(mode)
     local queueSize = #MATCHMAKING.Queues[mode].Queue
     local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
     local averageMatchDuration = MATCHMAKING.AverageMatchDurations[mode]
@@ -31,7 +34,7 @@ function MATCHMAKING.EstimateWaitTime(mode)
     return estimatedWaitTime
 end
 
-function MATCHMAKING.AddToQueue(partyID, mode)
+function Matchmaking:AddToQueue(partyID, mode)
     local partySkill = 0
     for _, player in ipairs(MATCHMAKING.Parties[partyID]) do
         partySkill = partySkill + PLAYERS.GetSkill(player)
@@ -81,7 +84,7 @@ function MATCHMAKING.AddToQueue(partyID, mode)
     print("Party " .. partyID .. " added to the " .. mode .. " queue.")
 end
 
-function MATCHMAKING.FillMatchWithParties(match, mode)
+function Matchmaking:FillMatchWithParties(match, mode)
     local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
 
     while #match < maxPlayers and #MATCHMAKING.Queues[mode].Queue > 0 do
@@ -99,7 +102,7 @@ function MATCHMAKING.FillMatchWithParties(match, mode)
     end
 end
 
-function MATCHMAKING.DistributePlayersToTeams(match, mode)
+function Matchmaking:DistributePlayersToTeams(match, mode)
     local teams = {}
     for i = 1, MATCHMAKING.Queues[mode].MaxPlayers // 2 do
         local team1Player = match[2 * i - 1]
@@ -113,7 +116,7 @@ function MATCHMAKING.DistributePlayersToTeams(match, mode)
     return teams
 end
 
-function MATCHMAKING.CreateMatch(mode)
+function Matchmaking:CreateMatch(mode)
     local matchID = generateUUID()
 
     local match = {
@@ -134,7 +137,7 @@ function MATCHMAKING.CreateMatch(mode)
 end
 
 
-function MATCHMAKING.CheckMatches(mode)
+function Matchmaking:CheckMatches(mode)
     print("Checking matches for mode: " .. mode)
     for i = #MATCHMAKING.Matches, 1, -1 do
         local match = MATCHMAKING.Matches[i]
@@ -188,11 +191,11 @@ function MATCHMAKING.CheckMatches(mode)
     end
 end
 
-function MATCHMAKING.IsPlayerDisconnected(player)
+function Matchmaking:IsPlayerDisconnected(player)
     return GetPlayerPing(player) == 0
 end
 
-function MATCHMAKING.RemoveDisconnectedPlayersFromQueue(mode)
+function Matchmaking:RemoveDisconnectedPlayersFromQueue(mode)
     local queue = MATCHMAKING.Queues[mode].Queue
     for i = #queue, 1, -1 do
         local player = queue[i]
@@ -203,7 +206,7 @@ function MATCHMAKING.RemoveDisconnectedPlayersFromQueue(mode)
     end
 end
 
-function MATCHMAKING.MatchmakingLoop(mode)
+function Matchmaking:MatchmakingLoop(mode)
     while true do
         Wait(1000)
         MATCHMAKING.CheckMatches(mode)
@@ -214,7 +217,7 @@ function MATCHMAKING.MatchmakingLoop(mode)
     end
 end
 
-function MATCHMAKING.SimulatePlayers()
+function atchmaking:SimulatePlayers()
     for i = 1, 5 do
         local partyID = "Party " .. i
         local players = {"Player " .. (2 * i - 1), "Player " .. (2 * i)}
@@ -225,29 +228,31 @@ function MATCHMAKING.SimulatePlayers()
     end
 end
 
-function MATCHMAKING.StartMatchmaking()
+function Matchmaking:StartMatchmaking()
     for mode, config in pairs(MATCHMAKING.Queues) do
         CreateThread(function() MATCHMAKING.MatchmakingLoop(mode) end)
     end
 end
 
 -- Add custom events for monitoring
-function MATCHMAKING.OnPlayerJoinedQueue(player, mode)
+function Matchmaking:OnPlayerJoinedQueue(player, mode)
     TriggerEvent("MATCHMAKING:PlayerJoinedQueue", player, mode)
 end
 
-function MATCHMAKING.OnPlayerLeftQueue(player, mode)
+function Matchmaking:OnPlayerLeftQueue(player, mode)
     TriggerEvent("MATCHMAKING:PlayerLeftQueue", player, mode)
 end
 
-function MATCHMAKING.OnMatchStarted(mode, matchID)
+function Matchmaking:OnMatchStarted(mode, matchID)
     TriggerEvent("MATCHMAKING:MatchStarted", mode, matchID)
 end
 
-function MATCHMAKING.OnMatchEnded(mode, matchID)
+function Matchmaking:OnMatchEnded(mode, matchID)
     TriggerEvent("MATCHMAKING:MatchEnded", mode, matchID)
 end
 
 
-MATCHMAKING.SimulatePlayers()
-MATCHMAKING.StartMatchmaking()
+-- Instantiate the Matchmaking class and start the matchmaking process
+local matchmaking = Matchmaking.new()
+matchmaking:SimulatePlayers()
+matchmaking:StartMatchmaking()
