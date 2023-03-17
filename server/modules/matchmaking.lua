@@ -31,7 +31,7 @@ end
 function MATCHMAKING.AddToQueue(partyID, mode)
     local partySkill = 0
     for _, player in ipairs(MATCHMAKING.Parties[partyID]) do
-        partySkill = partySkill + GetPlayerSkill(player)
+        partySkill = partySkill + PLAYERS.GetSkill(player)
     end
     partySkill = partySkill / #MATCHMAKING.Parties[partyID] -- Calculate the average skill of the party
 
@@ -40,7 +40,7 @@ function MATCHMAKING.AddToQueue(partyID, mode)
         local currentPartyID = MATCHMAKING.Queues[mode].Queue[i]
         local currentPartySkill = 0
         for _, player in ipairs(MATCHMAKING.Parties[currentPartyID]) do
-            currentPartySkill = currentPartySkill + GetPlayerSkill(player)
+            currentPartySkill = currentPartySkill + PLAYERS.GetSkill(player)
         end
         currentPartySkill = currentPartySkill / #MATCHMAKING.Parties[currentPartyID]
 
