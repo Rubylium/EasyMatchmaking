@@ -84,13 +84,14 @@ end
 
 function MATCHMAKING.CreateMatch(mode)
     -- Generate a unique match ID
-    local matchID = os.time() .. "-" .. math.random(10000, 99999)
+    local matchID = generateUUID()
 
     -- Store match data
     local match = {
-        id = matchID,
-        mode = mode,
-        teams = {},
+        ID = matchID,
+        Mode = mode,
+        Players = {},
+        StartTime = os.time(),
     }
 
     local maxPlayers = MATCHMAKING.Queues[mode].MaxPlayers
