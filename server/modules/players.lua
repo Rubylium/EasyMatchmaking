@@ -1,58 +1,58 @@
-PLAYERS = {
-    List = {}
+Player = {}
+Player.__index = Player
+
+function Player:new(playerId, level, skill)
+    local self = setmetatable({}, Player)
+    self.id = playerId
+    self.level = level
+    self.skill = skill
+    return self
+end
+
+PlayerList = {
+    players = {}
 }
 
--- Insert a new player or update an existing one
-function PLAYERS.Set(playerId, level, skill)
-    if PLAYERS.List[playerId] then
-        PLAYERS.List[playerId].level = level
-        PLAYERS.List[playerId].skill = skill
-        MySQL.update.await('UPDATE player_data SET level = ?, skill = ? WHERE player_id = ?', {level, skill, playerId})
+function PlayerList:set(player)
+    if self.players[player.id] then
+        self.players[player.id].level = player.level
+        self.players[player.id].skill = player.skill
+        MySQL.update.await('UPDATE player_data SET level = ?, skill = ? WHERE player_id = ?', {player.level, player.skill, player.id})
     else
-        PLAYERS.List[playerId] = {
-            id = playerId,
-            level = level,
-            skill = skill
-        }
-        MySQL.insert.await('INSERT INTO player_data (player_id, level, skill) VALUES (?, ?, ?)', {playerId, level, skill})
+        self.players[player.id] = player
+        MySQL.insert.await('INSERT INTO player_data (player_id, level, skill) VALUES (?, ?, ?)', {player.id, player.level, player.skill})
     end
 end
 
--- Add player data to cache
-function PLAYERS.Add(playerId)
+function PlayerList:add(playerId)
     local result = MySQL.query.await('SELECT * FROM player_data WHERE player_id = ?', {playerId})
     if #result > 0 then
         local data = result[1]
-        PLAYERS.List[playerId] = {
-            id = playerId,
-            level = data.level,
-            skill = data.skill
-        }
+        self.players[playerId] = Player:new(playerId, data.level, data.skill)
     end
 end
 
--- Get the skill of a player
-function PLAYERS.GetSkill(playerId)
-    if PLAYERS.List[playerId] then
-        return PLAYERS.List[playerId].skill
+function PlayerList:getSkill(playerId)
+    if self.players[playerId] then
+        return self.players[playerId].skill
     end
     return nil
 end
 
--- Get the level of a player
-function PLAYERS.GetLevel(playerId)
-    if PLAYERS.List[playerId] then
-        return PLAYERS.List[playerId].level
+function PlayerList:getLevel(playerId)
+    if self.players[playerId] then
+        return self.players[playerId].level
     end
     return nil
 end
 
--- Delete a player
-function PLAYERS.Delete(playerId)
-    if PLAYERS.List[playerId] then
-        PLAYERS.List[playerId] = nil
+function PlayerList:delete(playerId)
+    if self.players[playerId] then
+        self.players[playerId] = nil
         local affectedRows = MySQL.update.await('DELETE FROM player_data WHERE player_id = ?', {playerId})
         return affectedRows > 0
     end
     return false
 end
+
+players = PlayerList
