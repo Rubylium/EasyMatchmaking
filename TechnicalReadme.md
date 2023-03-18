@@ -22,6 +22,7 @@ The `Matchmaking` class consists of the following methods:
 
 - `Matchmaking:addToQueue(partyID, mode)`: Adds a party to the queue for the specified game mode.
 - `Matchmaking:removeDisconnectedPlayersFromQueue(mode)`: Removes disconnected players from the queue for the given game mode.
+- `Matchmaking:addToPriorityQueue(partyID, mode)`: Adds a party to the priority queue for the specified game mode if they have been waiting longer than a predefined threshold.
 
 ### Match Creation and Management
 
@@ -33,6 +34,10 @@ The `Matchmaking` class consists of the following methods:
 ### Matchmaking Loop
 
 - `Matchmaking:matchmakingLoop(mode)`: Continuously checks matches and creates new matches as needed for the given game mode.
+
+### Spectator Mode
+
+- `Matchmaking:addSpectator(spectatorID, matchID)`: Adds a player as a spectator to the specified match.
 
 ### Custom Events
 
