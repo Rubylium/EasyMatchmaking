@@ -143,6 +143,7 @@ function Matchmaking:createMatch(mode)
         Mode = mode,
         Players = {},
         StartTime = os.time(),
+        Spectators = {}, -- Add this line to store spectators
     }
 
     self:fillMatchWithParties(match.Players, mode)
@@ -153,6 +154,31 @@ function Matchmaking:createMatch(mode)
     print("Match created in " .. mode .. " mode with balanced teams (Match ID: " .. matchID .. ")")
     -- Trigger the custom event
     self:onMatchStarted(mode, matchID)
+end
+
+function Matchmaking:addSpectator(player, matchID)
+    for _, match in ipairs(self.matches) do
+        if match.ID == matchID then
+            table.insert(match.Spectators, player)
+            print("Player " .. player .. " joined as a spectator in match " .. matchID .. ".")
+            break
+        end
+    end
+end
+
+function Matchmaking:removeSpectator(player, matchID)
+    for _, match in ipairs(self.matches) do
+        if match.ID == matchID then
+            for i, spectator in ipairs(match.Spectators) do
+                if spectator == player then
+                    table.remove(match.Spectators, i)
+                    print("Player " .. player .. " left as a spectator in match " .. matchID .. ".")
+                    break
+                end
+            end
+            break
+        end
+    end
 end
 
 -- Check the status of ongoing matches for the given game mode
