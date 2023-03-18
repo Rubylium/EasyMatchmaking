@@ -16,6 +16,7 @@ function Matchmaking.new()
         ["capturetheflag"] = 600,
         ["teamdeathmatch"] = 480
     }
+    self.priorityWaitTime = 120 -- in seconds; adjust this value according to your requirements
     return self
 end
 
@@ -55,20 +56,23 @@ function Matchmaking:addToQueue(partyID, mode)
     local partySkill = self:getAveragePartySkill(partyID)
 
     local inserted = false
+    local joinTime = os.time()
     for queueIndex = 1, #self.queues[mode].queue do
-        local currentPartyID = self.queues[mode].queue[queueIndex]
+        local currentParty = self.queues[mode].queue[queueIndex]
+        local currentPartyID = currentParty.partyID
         local currentPartySkill = self:getAveragePartySkill(currentPartyID)
 
         if partySkill < currentPartySkill then
-            table.insert(self.queues[mode].queue, queueIndex, partyID)
+            table.insert(self.queues[mode].queue, queueIndex, {partyID = partyID, joinTime = joinTime})
             inserted = true
             break
         end
     end
 
     if not inserted then
-        table.insert(self.queues[mode].queue, partyID)
+        table.insert(self.queues[mode].queue, {partyID = partyID, joinTime = joinTime})
     end
+
 
     self:removeDisconnectedPlayersFromQueue(mode)
 
@@ -93,17 +97,21 @@ end
 -- Fill a match with parties from the queue for the given game mode
 function Matchmaking:fillMatchWithParties(match, mode)
     local maxPlayers = self.queues[mode].maxPlayers
+    local currentTime = os.time()
 
     while #match < maxPlayers and #self.queues[mode].queue > 0 do
-        local partyID = table.remove(self.queues[mode].queue, 1)
+        local partyData = table.remove(self.queues[mode].queue, 1)
+        local partyID = partyData.partyID
         local party = self.parties[partyID]
+        local joinTime = partyData.joinTime
+        local waitTime = currentTime - joinTime
 
-        if #party + #match <= maxPlayers then
+        if #party + #match <= maxPlayers and waitTime >= self.priorityWaitTime then
             for _, player in ipairs(party) do
                 table.insert(match, player)
             end
         else
-            table.insert(self.queues[mode].queue, 1, partyID) -- Return the party back to the queue
+            table.insert(self.queues[mode].queue, 1, partyData) -- Return the party back to the queue
             break
         end
     end
